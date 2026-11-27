@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juego Limpio</title>
+<style>
+@font-face{font-family:"Lilita One";src:url(data:font/woff2;base64,__FONT_LILITA__) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(data:font/woff2;base64,__FONT_ATK400__) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(data:font/woff2;base64,__FONT_ATK700__) format("woff2");font-weight:700;font-display:swap}
+:root{
+/* Inicio sobre una cancha con líneas de tiza; dentro del juego, tarjetas blancas sobre fondo claro y un solo acento fuerte: el amarillo del marcador */
+--cancha:#1d7a4e;--cancha-2:#218656;--cancha-osc:#135437;
+--tinta:#15233c;--tinta-2:#4a5873;--fondo:#f1f5f0;--tarjeta:#ffffff;--linea:#d4ded5;
+--acento:#ffb703;--acento-suave:#fff3cf;
+--ok:#16704a;--ok-fondo:#e0f2e7;--riesgo:#9c4706;--riesgo-fondo:#ffefd6;
+--info:#22579a;--info-fondo:#e7eff9;
+--display:"Lilita One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+--texto:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+--radio:14px;
+color-scheme:light;
+}
+*{box-sizing:border-box}
+html{font-size:17px;height:100%}
+html.proyector{font-size:21px}
+body{margin:0;height:100%;background:var(--fondo);color:var(--tinta);font-family:var(--texto);line-height:1.5;-webkit-font-smoothing:antialiased}
+#raiz{min-height:100%;display:flex;flex-direction:column}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--info);outline-offset:3px}
+h1,h2,h3,h4{font-family:var(--display);font-weight:400;line-height:1.12;margin:0;text-wrap:balance;letter-spacing:.01em}
+p{margin:0}
+.ic{width:1.25em;height:1.25em;flex:none;vertical-align:-.22em}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.app{width:100%;max-width:900px;margin:0 auto;padding:0 16px 56px}
+html.proyector .app{max-width:1200px}
+.barra{display:flex;align-items:center;gap:12px;padding:14px 0;position:sticky;top:0;background:var(--fondo);z-index:5}
+.barra h2{font-size:1.4rem;flex:1;min-width:0}
+.btn-icono{width:46px;height:46px;border-radius:12px;border:1.5px solid var(--linea);background:var(--tarjeta);display:grid;place-items:center;flex:none}
+.btn-icono:hover{border-color:var(--tinta-2)}
+.interruptor{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:999px;border:1.5px solid var(--linea);background:var(--tarjeta);font-size:.85rem;font-weight:700;flex:none}
+.interruptor[aria-pressed="true"]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:0 24px;border-radius:var(--radio);border:2px solid var(--tinta);background:var(--tarjeta);font-weight:700;font-size:1rem;transition:transform .12s,box-shadow .12s;text-decoration:none}
+.btn:hover{transform:translateY(-1px)}
+.btn-principal{background:var(--acento);color:var(--tinta);box-shadow:0 4px 0 var(--tinta)}
+.btn-principal:active{box-shadow:0 1px 0 var(--tinta);transform:translateY(3px)}
+.btn-cancha{background:var(--cancha);color:#fff;border-color:var(--cancha-osc);box-shadow:0 4px 0 var(--cancha-osc)}
+.btn-cancha:active{box-shadow:0 1px 0 var(--cancha-osc);transform:translateY(3px)}
+.btn-chico{min-height:42px;padding:0 14px;font-size:.88rem;border-width:1.5px}
+.tarjeta{background:var(--tarjeta);border:1.5px solid var(--linea);border-radius:18px;padding:20px}
+.etiqueta{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:700;padding:5px 11px;border-radius:999px;background:var(--fondo);color:var(--tinta-2)}
+.pila{display:flex;flex-direction:column;gap:16px}
+.fila{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.sacude{animation:sacude .42s}
+@keyframes sacude{20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+@keyframes entra{from{opacity:.001;transform:translateY(10px)}to{opacity:1;transform:none}}
+.entra{animation:entra .35s ease-out both}
+
+/* Inicio */
+.campo{position:relative;flex:1;min-height:560px;background:repeating-linear-gradient(90deg,var(--cancha) 0 72px,var(--cancha-2) 72px 144px);color:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:56px 20px;text-align:center}
+.campo .tiza{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.campo .contenido{position:relative;max-width:680px;display:flex;flex-direction:column;align-items:center;gap:20px}
+.marcador{display:inline-flex;gap:10px;align-items:center;background:var(--tinta);color:var(--acento);font-family:var(--display);padding:7px 16px;border-radius:10px;font-size:.95rem;letter-spacing:.08em}
+.titulo-juego{font-size:clamp(3.2rem,11vw,6rem);color:#fff;text-shadow:0 5px 0 var(--cancha-osc);letter-spacing:.02em}
+.campo .lema{font-size:1.15rem;max-width:34ch;color:#f2fbf5}
+.campo .acciones{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:6px}
+.btn-claro{background:transparent;color:#fff;border-color:rgba(255,255,255,.85)}
+.campo .interruptor{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.5)}
+.campo .interruptor[aria-pressed="true"]{background:#fff;color:var(--tinta)}
+.campo .pie{font-size:.82rem;color:#d4efdf}
+
+/* Avatar */
+.avatar-grid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;align-items:start}
+.avatar-vista{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;position:sticky;top:84px}
+.avatar-vista .marco{width:220px;height:220px;border-radius:50%;background:var(--ok-fondo);display:grid;place-items:center;overflow:hidden;border:3px solid var(--cancha)}
+.avatar-vista .marco svg{width:200px;height:200px;margin-top:22px}
+.opcion h3{font-size:1.05rem;margin-bottom:10px}
+.muestras{display:flex;flex-wrap:wrap;gap:10px}
+.muestra{width:46px;height:46px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px var(--linea)}
+.muestra[aria-pressed="true"]{box-shadow:0 0 0 3px var(--tinta)}
+.pildora{min-height:44px;padding:0 16px;border-radius:999px;border:1.5px solid var(--linea);background:var(--tarjeta);font-weight:700;font-size:.9rem}
+.pildora[aria-pressed="true"]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.numero{display:flex;align-items:center;gap:10px}
+.numero output{font-family:var(--display);font-size:1.8rem;min-width:2.4ch;text-align:center}
+.campo-texto{width:100%;max-width:320px;min-height:48px;padding:0 14px;border-radius:12px;border:1.5px solid var(--linea);background:var(--tarjeta)}
+.campo-texto:focus{border-color:var(--info);outline:none;box-shadow:0 0 0 3px var(--info-fondo)}
+
+/* Vestuario */
+.perfil{display:flex;align-items:center;gap:18px}
+.perfil .mini{width:96px;height:96px;border-radius:50%;background:var(--ok-fondo);border:3px solid var(--cancha);overflow:hidden;display:grid;place-items:center;flex:none}
+.perfil .mini svg{width:88px;height:88px;margin-top:12px}
+.perfil h3{font-size:1.6rem}
+.fichas{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.ficha{display:flex;flex-direction:column;gap:6px;text-align:left;border-radius:18px;padding:18px;border:1.5px solid var(--linea);background:var(--tarjeta)}
+button.ficha:hover{border-color:var(--tinta-2)}
+.ficha .grande{font-family:var(--display);font-size:2rem;line-height:1}
+.ficha .titulo{display:flex;align-items:center;gap:8px;font-weight:700}
+.album{display:flex;gap:8px;margin-top:4px}
+.album .slot{width:46px;height:58px;border-radius:8px;border:2px dashed var(--linea);display:grid;place-items:center;color:var(--linea)}
+.album .slot.ganada{border:2px solid var(--cancha);background:var(--ok-fondo);color:var(--cancha);transform:rotate(-3deg)}
+.niveles{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.nivel{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center;padding:16px 18px;border-radius:18px;background:var(--tarjeta);border:1.5px solid var(--linea)}
+.nivel .num{font-family:var(--display);font-size:2.2rem;width:58px;height:58px;border-radius:14px;display:grid;place-items:center;background:var(--fondo);color:var(--tinta-2)}
+.nivel.activo{border:2.5px solid var(--tinta)}
+.nivel.activo .num{background:var(--acento);color:var(--tinta)}
+.nivel h4{font-size:1.25rem}
+.nivel .momento{font-size:.88rem;color:var(--tinta-2)}
+.nivel .pronto{font-size:.82rem;font-weight:700;color:var(--tinta-2);background:var(--fondo);padding:6px 12px;border-radius:999px}
+.hecho{display:inline-flex;align-items:center;gap:6px;color:var(--ok);font-weight:700;font-size:.85rem}
+
+/* Mochila */
+.derechos{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.derecho{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:16px;background:var(--tarjeta);border:1.5px solid var(--linea)}
+.derecho .circulo{width:46px;height:46px;border-radius:50%;background:var(--ok-fondo);color:var(--cancha);display:grid;place-items:center;flex:none}
+.derecho strong{display:block;font-size:1rem}
+.derecho span{font-size:.88rem;color:var(--tinta-2)}
+.caso-ficha{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--tarjeta);border:1.5px solid var(--linea);border-radius:20px;padding:16px 18px}
+.caso-ficha.activo{border-color:var(--acento);box-shadow:0 0 0 3px var(--acento-suave)}
+.caso-ficha h4{font-size:1.2rem}
+.caso-ficha .circulo{width:48px;height:48px;border-radius:14px;background:var(--acento-suave);display:grid;place-items:center;flex:none}
+.caso-ficha .circulo .ic{color:#8a5a00}
+.comparar{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.credito{font-size:.8rem;opacity:.85;margin-top:2px}
+.credito-pie{text-align:center;font-size:.8rem;color:var(--tinta-2);margin-top:8px}
+details.tarjeta summary{cursor:pointer}
+.aviso{display:flex;gap:12px;align-items:flex-start;background:var(--info-fondo);color:#16365f;border-radius:16px;padding:16px 18px}
+.aviso .ic{color:var(--info);margin-top:2px}
+
+/* Nivel 1 */
+.pasos{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.pasos li{display:flex;gap:12px;align-items:flex-start;background:var(--tarjeta);border:1.5px solid var(--linea);border-radius:16px;padding:16px}
+.pasos .n{font-family:var(--display);font-size:1.5rem;width:42px;height:42px;border-radius:12px;background:var(--acento);display:grid;place-items:center;flex:none}
+.pips{display:flex;gap:4px;margin-bottom:14px}
+.pips span{flex:1;height:7px;border-radius:4px;background:var(--linea)}
+.pips span.ok{background:var(--cancha)}
+.pips span.ahora{background:var(--acento)}
+.caso{position:relative;overflow:hidden;background:var(--tarjeta);border:2px solid var(--tinta);border-radius:22px;padding:24px 24px 26px;box-shadow:0 6px 0 var(--tinta)}
+.caso .texto{font-size:1.4rem;line-height:1.4;margin-top:12px;max-width:46ch}
+.caso.escanea::after{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--acento);animation:escaneo 1s ease-in-out 1 forwards;opacity:0}
+@keyframes escaneo{0%{top:0;opacity:1}85%{opacity:1}100%{top:100%;opacity:0}}
+.lugar-casa{background:#fde9e4;color:#8a2d14}
+.lugar-colegio{background:var(--info-fondo);color:#16365f}
+.lugar-barrio{background:var(--ok-fondo);color:#0f4f33}
+.lugar-internet{background:#efe7fb;color:#4a2a80}
+.pregunta{font-weight:700;font-size:1.05rem;display:flex;gap:8px;align-items:center}
+.paso-n{white-space:nowrap;font-family:var(--display);font-weight:400;font-size:.9rem;background:var(--tinta);color:#fff;border-radius:8px;padding:2px 8px}
+.estados{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.estado{display:flex;align-items:center;justify-content:center;gap:12px;min-height:82px;border-radius:18px;font-family:var(--display);font-size:1.5rem;border:2.5px solid currentColor;transition:transform .12s}
+.estado:hover{transform:translateY(-2px)}
+.estado .ic{width:1.4em;height:1.4em}
+.estado.cuidado{background:var(--ok-fondo);color:var(--ok)}
+.estado.riesgo{background:var(--riesgo-fondo);color:var(--riesgo)}
+.opciones-derecho{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.op-derecho{display:flex;align-items:center;gap:10px;min-height:58px;padding:8px 12px;border-radius:14px;border:1.5px solid var(--linea);background:var(--tarjeta);text-align:left;font-weight:700;font-size:.92rem;line-height:1.2}
+.op-derecho:hover{border-color:var(--tinta)}
+.op-derecho .ic{color:var(--cancha)}
+.op-derecho.descartado{opacity:.45;text-decoration:line-through}
+.pista{display:flex;gap:10px;align-items:flex-start;background:var(--acento-suave);border-radius:14px;padding:12px 14px;color:#5c3d00}
+.resultado{border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px;border:2px solid var(--cancha);background:var(--tarjeta)}
+.resultado h3{font-size:1.6rem;color:var(--cancha);display:flex;align-items:center;gap:10px}
+.sello{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:12px;font-weight:700;font-size:.92rem}
+.sello.cuidado{background:var(--ok-fondo);color:var(--ok)}
+.sello.riesgo{background:var(--riesgo-fondo);color:var(--riesgo)}
+.sello.derecho{background:var(--fondo);color:var(--tinta)}
+.ley{font-size:.85rem;color:var(--tinta-2);display:flex;gap:6px;align-items:center}
+.conversar{display:flex;gap:12px;align-items:flex-start;background:var(--info-fondo);color:#16365f;border-radius:14px;padding:14px 16px}
+.conversar strong{display:block}
+.derecha{display:flex;justify-content:flex-end}
+
+/* Mito o verdad */
+.afirmacion{position:relative;background:var(--tinta);color:#fff;border-radius:22px;padding:30px 26px;font-size:1.5rem;line-height:1.4}
+.afirmacion .ic.comillas{position:absolute;top:14px;left:16px;width:28px;height:28px;color:var(--acento);opacity:.9}
+.afirmacion p{padding-left:30px}
+.mv{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mv .estado.mito{background:#fde9e4;color:#8a2d14}
+.mv .estado.verdad{background:var(--ok-fondo);color:var(--ok)}
+
+/* Cierre */
+.cierre{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:24px;align-items:center}
+.lamina{position:relative;background:var(--tarjeta);border:4px solid var(--cancha);border-radius:20px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;transform:rotate(-4deg);box-shadow:0 8px 0 var(--cancha-osc);animation:pega .7s cubic-bezier(.2,1.4,.4,1) both}
+.lamina.quieta{animation:none}
+@keyframes pega{from{transform:rotate(-20deg) scale(.4);opacity:0}to{transform:rotate(-4deg) scale(1);opacity:1}}
+.lamina .numl{font-family:var(--display);font-size:1rem;background:var(--tinta);color:var(--acento);padding:2px 10px;border-radius:8px;align-self:flex-start}
+.lamina .icono-l{width:96px;height:96px;border-radius:50%;background:var(--acento);display:grid;place-items:center;color:var(--tinta)}
+.lamina .icono-l .ic{width:52px;height:52px}
+.lamina h3{font-size:1.4rem}
+.lamina p{font-size:.9rem;color:var(--tinta-2)}
+.datos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.dato{background:var(--tarjeta);border:1.5px solid var(--linea);border-radius:14px;padding:12px}
+.dato b{display:block;font-family:var(--display);font-weight:400;font-size:1.8rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.dato span{font-size:.82rem;color:var(--tinta-2)}
+.autoeval{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.autoeval button{min-height:58px;border-radius:14px;border:1.5px solid var(--linea);background:var(--tarjeta);font-weight:700;padding:8px 12px}
+.autoeval button[aria-pressed="true"]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.cuaderno{display:flex;gap:12px;align-items:flex-start;background:var(--acento-suave);border-radius:16px;padding:16px;color:#4d3300}
+
+/* Nivel 2 */
+.marcador2{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;background:var(--tarjeta);border:1.5px solid var(--linea);border-radius:16px;padding:12px 16px}
+.marcador2>div{display:flex;align-items:center;gap:10px}
+.marcador2 .rotulo{font-size:.85rem;font-weight:700;color:var(--tinta-2)}
+.marcador2 b{font-family:var(--display);font-weight:400;font-size:1.2rem;font-variant-numeric:tabular-nums}
+.marcador2 .btn{margin-left:auto}
+.puntos{display:flex;gap:5px}
+.punto{width:14px;height:14px;border-radius:50%;background:var(--linea)}
+.punto.p{background:var(--acento);box-shadow:inset 0 0 0 2px var(--tinta)}
+.punto.b{background:var(--cancha)}
+.patio-marco{border:2px solid var(--tinta);border-radius:22px;overflow-x:auto;background:#eadfca;box-shadow:0 6px 0 var(--tinta)}
+.patio{display:block;width:100%;min-width:820px;height:auto;cursor:zoom-in}
+.escena{cursor:zoom-in;outline:none}
+.escena:focus-visible .zona{stroke:var(--info);stroke-width:5;stroke-dasharray:10 8}
+.zona.activa{stroke:#ffb703;stroke-width:5;stroke-dasharray:12 8}
+.anillo{animation:pulso 1s ease-in-out infinite}
+@keyframes pulso{50%{stroke-opacity:.2}}
+.caras{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.cara{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:16px;border:1.5px solid var(--linea);background:var(--tarjeta);font-weight:700;font-size:.9rem}
+.cara:hover{border-color:var(--tinta)}
+.cara svg{width:56px;height:56px}
+.acciones2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.accion2{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:14px;border-radius:14px;border:1.5px solid var(--linea);background:var(--tarjeta);font-weight:700;font-size:.95rem}
+.accion2:hover{border-color:var(--tinta)}
+.accion2 small{font-weight:400;font-size:.88rem;display:flex;gap:6px;align-items:flex-start}
+.accion2.buena{border-color:var(--ok);background:var(--ok-fondo);color:#0f4f33}
+.accion2.mala{border-color:var(--riesgo);background:var(--riesgo-fondo);color:#6b3104}
+
+.solo-movil{display:none}
+@media (max-width:820px){.solo-movil{display:flex;gap:8px;align-items:center;font-size:.88rem;color:var(--tinta-2)}}
+
+/* Nivel 3 */
+.maestra{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.maestra span{background:var(--acento-suave);color:#5c3d00;font-weight:700;padding:8px 12px;border-radius:12px}
+.maestra .ic{color:var(--tinta-2)}
+.arena{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:16px;align-items:start;background:var(--tarjeta);border:2px solid var(--tinta);border-radius:22px;padding:20px;box-shadow:0 6px 0 var(--tinta)}
+.lado{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.retrato{width:110px;height:110px;border-radius:50%;background:var(--ok-fondo);border:3px solid var(--cancha);overflow:hidden;display:grid;place-items:center}
+.retrato svg{width:100px;height:100px;margin-top:14px}
+.quiere{font-size:.98rem;background:var(--fondo);border-radius:14px;padding:10px 12px;min-height:3.2em;width:100%}
+.vs{display:flex;flex-direction:column;align-items:center;gap:6px;align-self:center;color:var(--tinta-2);font-family:var(--display);font-size:1rem;text-align:center}
+.vs .ic{width:40px;height:40px;color:var(--cancha)}
+.medidor{width:100%;text-align:left}
+.medidor-fila{display:flex;justify-content:space-between;font-size:.88rem;margin-bottom:4px}
+.medidor-pista{position:relative;height:18px;border-radius:9px;background:var(--fondo);border:1.5px solid var(--linea);overflow:hidden}
+.medidor-barra{position:absolute;left:0;top:0;bottom:0;border-radius:9px;transition:width .7s cubic-bezier(.3,1.3,.5,1)}
+.medidor-barra.verde{background:var(--cancha)}
+.medidor-barra.ambar{background:var(--acento)}
+.medidor-barra.rojo{background:#d9583b}
+.meta{position:absolute;top:0;bottom:0;width:3px;background:var(--tinta);z-index:1;opacity:.55}
+.mano{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.carta{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:150px;padding:14px;border-radius:16px;border:2px solid var(--tinta);background:var(--tarjeta);text-align:left;font-weight:700;font-size:.95rem;line-height:1.3;box-shadow:0 4px 0 var(--tinta);transition:transform .12s}
+.carta:hover{transform:translateY(-4px) rotate(-1deg)}
+.carta-icono{width:44px;height:44px;border-radius:12px;background:var(--acento);display:grid;place-items:center}
+.registro{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.registro li{display:flex;gap:12px;background:var(--tarjeta);border:1.5px solid var(--linea);border-radius:14px;padding:12px 14px}
+.registro p{font-size:.92rem}
+.num-j{font-family:var(--display);width:30px;height:30px;border-radius:8px;background:var(--tinta);color:#fff;display:grid;place-items:center;flex:none}
+.deltas{color:var(--tinta-2);margin-top:4px}
+.delta{font-weight:700;padding:1px 7px;border-radius:8px;background:var(--fondo)}
+.delta.mas{background:var(--ok-fondo);color:var(--ok)}
+.delta.menos{background:#fde2dc;color:#a3261b}
+.resultado.gana{border-width:3px;background:var(--ok-fondo)}
+
+/* Nivel 4 */
+.luces{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.luz{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:14px;background:var(--tarjeta);border:1.5px solid var(--linea);font-size:.82rem;font-weight:700;text-align:center;color:var(--tinta-2)}
+.luz .bombillo{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--linea);color:var(--tinta-2);font-family:var(--display);font-size:1.1rem}
+.luz.verde{border-color:var(--ok);color:var(--ok)}
+.luz.verde .bombillo{background:var(--cancha);color:#fff}
+.luz.roja{border-color:#d9583b;color:#a3261b}
+.luz.roja .bombillo{background:#d9583b;color:#fff}
+.opciones-diag{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.op-derecho.lista .ic{color:var(--info)}
+.regla{position:relative}
+.sello-aprobada{position:absolute;right:18px;bottom:16px;transform:rotate(-8deg);border:3px solid var(--cancha);color:var(--cancha);font-family:var(--display);font-size:1.3rem;letter-spacing:.06em;padding:4px 14px;border-radius:10px;background:var(--tarjeta);animation:sellar .45s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes sellar{from{transform:rotate(-8deg) scale(2.2);opacity:0}to{transform:rotate(-8deg) scale(1);opacity:1}}
+.tachada{color:var(--tinta-2);font-size:.85em;text-decoration-thickness:2px}
+.ideas4{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.ideas4 h3{font-size:1.15rem;display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.ideas4 h3 .ic{color:var(--cancha)}
+.votos{display:flex;flex-direction:column;gap:8px}
+.acuerdo-item{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 14px;border:1.5px solid var(--linea);border-radius:14px;background:var(--fondo)}
+.acuerdo-item p{font-weight:700}
+.si-no{display:flex;gap:6px;flex:none}
+.check-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-radius:12px;border:1.5px solid var(--linea);background:var(--tarjeta);font-weight:700;font-size:.88rem;text-align:left}
+.check-btn[aria-pressed="true"]{background:var(--ok-fondo);border-color:var(--ok);color:var(--ok)}
+.check-btn.no[aria-pressed="true"]{background:#fde2dc;border-color:#d9583b;color:#a3261b}
+.cartel{background:var(--tarjeta);border:3px solid var(--tinta);border-radius:24px;overflow:hidden;box-shadow:0 8px 0 var(--tinta)}
+.cartel-cabeza{background:repeating-linear-gradient(90deg,var(--cancha) 0 56px,var(--cancha-2) 56px 112px);color:#fff;padding:26px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.cartel-cabeza h2{font-size:clamp(2rem,6vw,3.2rem);text-shadow:0 4px 0 var(--cancha-osc)}
+.cartel ol{counter-reset:acuerdo;list-style:none;padding:24px 26px 10px;margin:0;display:flex;flex-direction:column;gap:14px}
+.cartel li{display:flex;gap:14px;align-items:flex-start;font-size:1.22rem;font-weight:700;line-height:1.35}
+.cartel li::before{counter-increment:acuerdo;content:counter(acuerdo);font-family:var(--display);font-weight:400;background:var(--acento);width:40px;height:40px;border-radius:10px;display:grid;place-items:center;flex:none}
+.cartel-reparar{display:flex;gap:12px;align-items:flex-start;margin:10px 26px 20px;padding:14px 16px;border-radius:14px;background:var(--info-fondo);color:#16365f}
+.firma{border-top:2px dashed var(--linea);padding:16px 26px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.firma .mini{width:64px;height:64px;border-radius:50%;background:var(--ok-fondo);border:3px solid var(--cancha);overflow:hidden;display:grid;place-items:center}
+.firma .mini svg{width:58px;height:58px;margin-top:8px}
+.album-completo{display:flex;gap:14px;align-items:center;background:var(--acento);color:var(--tinta);border:2px solid var(--tinta);border-radius:18px;padding:16px 18px;box-shadow:0 4px 0 var(--tinta)}
+.album-completo .ic{width:34px;height:34px}
+
+/* Mejoras: voz, guía, herramientas, registro */
+.btn-escuchar{display:inline-flex;align-items:center;gap:6px;vertical-align:middle;min-height:34px;padding:0 10px;border-radius:999px;border:1.5px solid var(--linea);background:var(--tarjeta);color:var(--info);font-weight:700;font-size:.85rem}
+.btn-escuchar:hover{border-color:var(--info)}
+.btn-escuchar.grande{min-height:42px;padding:0 14px;font-size:.92rem}
+.btn-escuchar.claro{background:transparent;color:#fff;border-color:rgba(255,255,255,.6);margin:12px 0 0 30px}
+.caras6{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mv3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mv3 .estado{font-size:1.08rem;min-height:96px;padding:10px 12px;text-align:center;flex-direction:column;gap:6px}
+.estado.ambas{background:var(--info-fondo);color:var(--info)}
+.pestanas{display:flex;flex-wrap:wrap;gap:6px;padding:4px 2px 12px;margin-bottom:6px}
+.pestanas button,.pestanas-mini button{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;min-height:42px;padding:0 14px;border-radius:999px;border:1.5px solid var(--linea);background:var(--tarjeta);font-weight:700;font-size:.88rem}
+.pestanas button[aria-selected="true"],.pestanas-mini button[aria-selected="true"]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.pestanas-mini{display:flex;gap:6px;flex-wrap:wrap}
+.guia-panel{background:var(--tarjeta);border:2px solid var(--info);border-radius:18px;padding:16px 18px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px}
+.lista-guia{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px}
+.respuesta-guia{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--acento-suave);border-radius:12px;padding:12px 14px}
+.respuesta-guia p{flex:1 1 100%}
+.reloj{display:flex;flex-direction:column;gap:12px}
+.reloj-num{font-family:var(--display);font-size:clamp(3rem,10vw,4.6rem);text-align:center;line-height:1;font-variant-numeric:tabular-nums}
+.reloj-num.fin{color:#c2362f}
+.reloj-pista{height:14px;border-radius:7px;background:var(--fondo);border:1.5px solid var(--linea);overflow:hidden}
+.reloj-barra{display:block;height:100%;background:var(--cancha);transition:width .2s linear}
+.sorteo{display:flex;flex-direction:column;gap:12px;align-items:stretch}
+.sorteo-n{font-family:var(--display);font-size:1.6rem;min-width:2ch;text-align:center}
+.sorteo-res{font-family:var(--display);font-size:clamp(2.2rem,8vw,3.6rem);text-align:center;background:var(--acento);border:2px solid var(--tinta);border-radius:18px;padding:16px;box-shadow:0 4px 0 var(--tinta)}
+.sorteo-nota{font-size:.85rem;color:var(--tinta-2);text-align:center}
+.herramientas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.herramientas h3{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.registro-tabla{min-width:760px}
+.registro-tabla td,.registro-tabla th{text-align:center;vertical-align:middle}
+.registro-tabla td:first-child,.registro-tabla th:first-child{text-align:left;font-weight:700}
+.celda{min-width:52px;min-height:38px;border-radius:10px;border:1.5px solid var(--linea);background:var(--tarjeta);font-weight:700}
+.celda.v1{background:var(--riesgo-fondo);border-color:var(--riesgo);color:var(--riesgo)}
+.celda.v2{background:var(--ok-fondo);border-color:var(--ok);color:var(--ok)}
+.celda.v3{background:var(--acento);border-color:var(--tinta);color:var(--tinta)}
+textarea.area{max-width:100%;height:auto;padding:12px;font:inherit;line-height:1.5}
+.tabla-res td:nth-child(2),.tabla-res td:nth-child(3){white-space:nowrap}
+.mini-barra{display:inline-block;width:90px;height:10px;border-radius:5px;background:var(--fondo);border:1px solid var(--linea);overflow:hidden;vertical-align:middle;margin-right:6px}
+.mini-barra span{display:block;height:100%;background:var(--cancha)}
+.mini-barra span.media{background:var(--acento)}
+.mini-barra span.baja{background:#d9583b}
+.suave{color:var(--tinta-2);font-size:.9rem}
+
+/* Docente */
+.docente h3{font-size:1.35rem;margin-bottom:10px}
+.docente h4{font-size:1.1rem;margin:14px 0 6px}
+.docente p,.docente li{font-size:.95rem}
+.docente ul,.docente ol{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+.tabla-envoltura{overflow-x:auto;border:1.5px solid var(--linea);border-radius:14px;background:var(--tarjeta)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:.88rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--linea);vertical-align:top}
+th{background:var(--fondo);font-weight:700}
+tr:last-child td{border-bottom:none}
+.clave{max-width:420px;margin:24px auto}
+.error{color:#a3261b;font-size:.9rem;font-weight:700;min-height:1.4em}
+
+@media (max-width:640px){
+  .avatar-grid,.cierre{grid-template-columns:1fr}
+  .avatar-vista{position:static}
+  .caso .texto{font-size:1.2rem}
+  .estado{font-size:1.25rem;min-height:72px}
+  .afirmacion{font-size:1.25rem}
+  .nivel{grid-template-columns:auto minmax(0,1fr)}
+  .nivel>:last-child{grid-column:1/-1}
+  .datos{grid-template-columns:1fr}
+  .barra .interruptor .txt{display:none}
+  .caras{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .arena{grid-template-columns:1fr 1fr;padding:14px;gap:12px}
+  .mv3{grid-template-columns:1fr}
+  .mv3 .estado{min-height:64px;flex-direction:row}
+  .caras6{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vs{display:none}
+  .luces{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .acuerdo-item{flex-direction:column;align-items:flex-start}
+  .cartel li{font-size:1.05rem}
+  .retrato{width:84px;height:84px}
+  .retrato svg{width:78px;height:78px;margin-top:12px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="raiz"></div>
+<script>
+const ICONOS = __ICONS_JSON__;
+function ic(n, extra){ return '<svg class="ic' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONOS[n] || '') + '</svg>'; }
+function mezclar(lista){ const a = lista.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function esc(t){ return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const DERECHOS = [
+  {id:'integridad', nombre:'Vida e integridad', frase:'Vivir seguro y que nadie me haga daño.', icono:'shield', norma:'Constitución, art. 44 · Ley 1098, arts. 17 y 18'},
+  {id:'salud', nombre:'Salud', frase:'Recibir atención cuando me enfermo.', icono:'stethoscope', norma:'Constitución, art. 44 · Ley 1098, art. 27'},
+  {id:'alimentacion', nombre:'Alimentación', frase:'Comer bien para crecer sano.', icono:'apple', norma:'Constitución, art. 44 · Ley 1098, art. 24'},
+  {id:'identidad', nombre:'Nombre y nacionalidad', frase:'Tener un nombre y ser reconocido.', icono:'id-card', norma:'Constitución, art. 44 · Ley 1098, art. 25'},
+  {id:'familia', nombre:'Tener una familia', frase:'Crecer con una familia y no ser separado de ella.', icono:'house', norma:'Constitución, art. 44 · Ley 1098, art. 22'},
+  {id:'amor', nombre:'Cuidado y amor', frase:'Ser cuidado, escuchado y querido.', icono:'heart-handshake', norma:'Constitución, art. 44 · Ley 1098, art. 23'},
+  {id:'educacion', nombre:'Educación', frase:'Ir al colegio y aprender.', icono:'book-open', norma:'Constitución, arts. 44 y 67 · Ley 1098, art. 28'},
+  {id:'recreacion', nombre:'Recreación y juego', frase:'Jugar, descansar y disfrutar del arte.', icono:'volleyball', norma:'Constitución, art. 44 · Ley 1098, art. 30'},
+  {id:'expresion', nombre:'Libre expresión', frase:'Decir lo que pienso y que me escuchen.', icono:'megaphone', norma:'Constitución, arts. 20 y 44'},
+  {id:'participacion', nombre:'Participación', frase:'Opinar y decidir en lo que me afecta.', icono:'vote', norma:'Ley 1098, art. 31'},
+  {id:'igualdad', nombre:'Igualdad', frase:'Valer lo mismo que todos, sin discriminación.', icono:'scale', norma:'Constitución, art. 13 · Ley 1098, art. 42'},
+  {id:'intimidad', nombre:'Intimidad', frase:'Decidir qué se muestra de mi vida privada.', icono:'eye-off', norma:'Constitución, art. 15 · Ley 1098, art. 33'}
+];
+const D = Object.fromEntries(DERECHOS.map(d => [d.id, d]));
+
+const LUGARES = {
+  casa:{nombre:'Casa', icono:'house'},
+  colegio:{nombre:'Colegio', icono:'school'},
+  barrio:{nombre:'Barrio', icono:'trees'},
+  internet:{nombre:'Internet', icono:'smartphone'}
+};
+
+const SITUACIONES = [
+  {id:'s1', lugar:'colegio', estado:'riesgo', derecho:'recreacion', tambien:['igualdad'],
+   texto:'En el recreo no dejan jugar fútbol a Mateo porque dicen que juega mal.',
+   pista:'piensa en lo que Mateo quería hacer en el recreo.',
+   explica:'Todos los niños y las niñas tienen derecho a jugar. Dejar a alguien por fuera por cómo juega afecta su recreación y lo trata como si valiera menos.',
+   acciones:[{t:'Invitar a Mateo a jugar y ayudarle a mejorar.', ok:true, c:'Mateo juega, se siente parte del grupo y puede aprender.'},{t:'Dejarlo por fuera hasta que juegue mejor.', ok:false, c:'Así nunca va a poder jugar ni mejorar.'},{t:'Burlarse de él para que se vaya.', ok:false, c:'La burla lo hace sentir peor y la exclusión crece.'}],
+   conversar:'¿Qué podría hacer el grupo para que Mateo también juegue?',
+   norma:'Constitución, art. 44 · Ley 1098, art. 30'},
+  {id:'s2', lugar:'barrio', estado:'cuidado', derecho:'salud', tambien:[],
+   texto:'Valeria se enfermó y su abuela la llevó al centro de salud, donde la atendieron.',
+   pista:'¿qué necesitaba Valeria cuando se enfermó?',
+   explica:'Valeria recibió atención cuando la necesitó. Así se cuida su derecho a la salud.',
+   norma:'Constitución, art. 44 · Ley 1098, art. 27'},
+  {id:'s3', lugar:'colegio', estado:'cuidado', derecho:'participacion', tambien:['expresion'],
+   texto:'Para escoger al representante del curso, la profesora pidió que todos votaran y dieran su opinión.',
+   pista:'todos pudieron votar y decidir.',
+   explica:'Cuando todos pueden votar y opinar sobre lo que pasa en el salón, se cuida el derecho a participar.',
+   norma:'Ley 1098, art. 31 · Constitución, art. 44'},
+  {id:'s4', lugar:'colegio', estado:'riesgo', derecho:'igualdad', tambien:['integridad'],
+   texto:'Daniel llegó de otra región del país y algunos compañeros se burlan de su acento.',
+   pista:'lo tratan como si valiera menos por el lugar de donde viene.',
+   explica:'Burlarse de alguien por su forma de hablar o por el lugar de donde viene es discriminar. Todos tenemos el mismo valor y los mismos derechos.',
+   acciones:[{t:'Reírte también para no quedar mal.', ok:false, c:'Si otros se ríen, la burla crece y Daniel se siente más solo.'},{t:'Decir con firmeza: «No se burlen, todos hablamos distinto».', ok:true, c:'Frenar la burla sin insultar protege a Daniel y muestra que las diferencias se respetan.'},{t:'Decirle a Daniel que hable como los demás.', ok:false, c:'El problema no es su acento: es la burla.'}],
+   conversar:'¿Cómo crees que se siente Daniel? ¿Qué le dirías tú?',
+   norma:'Constitución, art. 13 · Ley 1098, art. 42 (num. 12)'},
+  {id:'s5', lugar:'internet', estado:'riesgo', derecho:'intimidad', tambien:[],
+   texto:'Alguien quiere subir al grupo del curso una foto de Lucía dormida en la salida pedagógica, sin preguntarle.',
+   pista:'es algo de la vida privada de Lucía.',
+   explica:'Publicar una foto de alguien sin su permiso puede hacerle daño. Cada persona decide qué se muestra de su vida.',
+   acciones:[{t:'Reenviarla solo a tus amigos más cercanos.', ok:false, c:'Aunque sea a pocos, la foto se sigue compartiendo sin permiso.'},{t:'Comentar la foto con un emoji de risa.', ok:false, c:'Eso hace que más personas la vean y se burlen.'},{t:'No reenviar la foto y pedir que la borren.', ok:true, c:'Así cuidas la intimidad de Lucía y frenas el daño.'}],
+   conversar:'¿Qué harías si te piden reenviar esa foto?',
+   norma:'Constitución, art. 15 · Ley 1098, art. 33'},
+  {id:'s6', lugar:'colegio', estado:'cuidado', derecho:'alimentacion', tambien:[],
+   texto:'En el colegio, cada estudiante recibe un refrigerio del programa de alimentación escolar.',
+   pista:'tiene que ver con la comida.',
+   explica:'Comer a tiempo ayuda a crecer sano y a aprender. Así se cuida el derecho a la alimentación.',
+   norma:'Constitución, art. 44 (alimentación equilibrada)'},
+  {id:'s7', lugar:'colegio', estado:'riesgo', derecho:'expresion', tambien:['participacion'],
+   texto:'Cada vez que Sara quiere opinar en su grupo de trabajo, le dicen: «Tú no sabes, mejor cállate».',
+   pista:'no la dejan decir lo que piensa.',
+   explica:'Todos los niños y las niñas pueden expresar lo que piensan. Callar a alguien así le quita su voz en el grupo.',
+   acciones:[{t:'Pedir que el grupo escuche la idea de Sara.', ok:true, c:'Sara recupera su voz y el grupo gana una idea más.'},{t:'Quedarte callado para que no te digan lo mismo.', ok:false, c:'Si nadie dice nada, Sara sigue sin poder opinar.'},{t:'Decirle a Sara que mejor no opine.', ok:false, c:'Eso le quita su derecho a expresarse.'}],
+   conversar:'¿Cómo podría el grupo escuchar a todos sus integrantes?',
+   norma:'Constitución, arts. 20 y 44'},
+  {id:'s8', lugar:'casa', estado:'cuidado', derecho:'identidad', tambien:[],
+   texto:'Cuando Tomás nació, su familia le sacó el registro civil con su nombre.',
+   pista:'tiene que ver con su nombre.',
+   explica:'El registro civil le da a Tomás un nombre y una nacionalidad reconocidos. Es su derecho a la identidad.',
+   norma:'Constitución, art. 44 · Ley 1098, art. 25'},
+  {id:'s9', lugar:'barrio', estado:'riesgo', derecho:'integridad', tambien:['recreacion'],
+   texto:'Unos jóvenes mayores les quitan el balón a los niños del parque y les dicen que si se quejan les irá peor.',
+   pista:'los amenazan, y eso les hace daño.',
+   explica:'Las amenazas hacen daño aunque no haya golpes. Todos tienen derecho a estar seguros y a que nadie los maltrate.',
+   acciones:[{t:'Enfrentarlos a golpes para recuperar el balón.', ok:false, c:'Responder con violencia pone en riesgo a todos.'},{t:'Contarle a un adulto de confianza lo que pasó.', ok:true, c:'Un adulto puede protegerlos y frenar las amenazas.'},{t:'No decir nada para que no les vaya peor.', ok:false, c:'Callar deja que las amenazas sigan.'}],
+   conversar:'¿A qué adulto de confianza podrían contarle lo que pasó?',
+   norma:'Constitución, art. 44 · Ley 1098, art. 18'},
+  {id:'s10', lugar:'casa', estado:'cuidado', derecho:'amor', tambien:['familia'],
+   texto:'Cuando Martina está triste, su tía la escucha y la acompaña.',
+   pista:'su tía la escucha y la quiere.',
+   explica:'Sentirse escuchado y acompañado por la familia es parte del derecho al cuidado y al amor.',
+   norma:'Constitución, art. 44 (el cuidado y amor)'},
+  {id:'s11', lugar:'barrio', estado:'riesgo', derecho:'educacion', tambien:[],
+   texto:'Juan no ha vuelto al colegio porque tiene que trabajar todo el día.',
+   pista:'Juan no puede ir al colegio.',
+   explica:'Los niños y las niñas tienen derecho a estudiar. Trabajar no debe quitarles el tiempo de ir al colegio, aprender y jugar.',
+   acciones:[{t:'Pensar que Juan ya no necesita estudiar.', ok:false, c:'Todos los niños y las niñas necesitan estudiar, y es su derecho.'},{t:'Burlarse de Juan porque trabaja.', ok:false, c:'Juan no tiene la culpa de su situación; la burla lo lastima más.'},{t:'Que la familia, el colegio y las autoridades busquen cómo ayudarle a volver a estudiar.', ok:true, c:'Proteger los derechos de los niños es responsabilidad de todos: familia, sociedad y Estado.'}],
+   conversar:'¿Quiénes deberían ayudar para que Juan vuelva a estudiar?',
+   norma:'Constitución, arts. 44 y 67 · Ley 1098, art. 28'},
+  {id:'s12', lugar:'barrio', estado:'cuidado', derecho:'recreacion', tambien:[],
+   texto:'En el parque del barrio pusieron juegos nuevos y los niños acordaron usarlos por turnos.',
+   pista:'tiene que ver con jugar.',
+   explica:'Hay un espacio para jugar y un acuerdo para que todos lo disfruten. Así se cuida el derecho a la recreación.',
+   norma:'Constitución, art. 44 · Ley 1098, art. 30'}
+];
+const S = Object.fromEntries(SITUACIONES.map(s => [s.id, s]));
+
+const MITOS = [
+  {texto:'Si me porto mal en el colegio, pierdo mi derecho a estudiar.', resp:'mito',
+   explica:'Los derechos no se ganan ni se pierden por el comportamiento. Si incumples una norma puede haber consecuencias y debes reparar el daño, pero tus derechos siguen ahí.',
+   porque:[{t:'Porque los derechos no dependen del comportamiento.', ok:true},{t:'Porque el colegio no puede tener normas.', ok:false},{t:'Porque portarse mal no tiene ninguna consecuencia.', ok:false}],
+   norma:'Constitución, art. 44'},
+  {texto:'Los derechos de los niños y las niñas son iguales para todos, sin importar de dónde vengan o cómo sean.', resp:'verdad',
+   explica:'Todos los niños y las niñas tienen el mismo valor y los mismos derechos. Nadie debe ser discriminado.',
+   porque:[{t:'Porque todos los niños y las niñas son iguales en todo.', ok:false},{t:'Porque todos los niños y las niñas tienen el mismo valor.', ok:true},{t:'Porque así lo decide cada familia.', ok:false}],
+   norma:'Constitución, art. 13'},
+  {texto:'Solo los adultos pueden opinar sobre lo que pasa en el salón.', resp:'mito',
+   explica:'Los niños y las niñas tienen derecho a participar y a dar su opinión en la familia, el colegio y la comunidad.',
+   porque:[{t:'Porque los niños y las niñas deben decidir siempre solos.', ok:false},{t:'Porque las opiniones de los adultos no importan.', ok:false},{t:'Porque los niños y las niñas tienen derecho a participar en lo que los afecta.', ok:true}],
+   norma:'Ley 1098, art. 31'},
+  {texto:'Tener derechos también significa respetar los derechos de los demás.', resp:'verdad',
+   explica:'Tus derechos y los de tus compañeros valen lo mismo. Ejercerlos con responsabilidad incluye no pasar por encima de los derechos de otros.',
+   porque:[{t:'Porque si no respeto a los demás, pierdo mis derechos.', ok:false},{t:'Porque los derechos de los demás valen lo mismo que los míos.', ok:true},{t:'Porque así evito que me regañen.', ok:false}],
+   norma:'Ley 1098, art. 15'},
+  {texto:'Si alguien me ofende, tengo derecho a vengarme.', resp:'mito',
+   explica:'Puedes decir con firmeza lo que sientes y pedir ayuda a un adulto de confianza. Devolver el daño no lo repara y hace más grande el conflicto.',
+   porque:[{t:'Porque responder con daño hace más grande el conflicto.', ok:true},{t:'Porque siempre debo quedarme callado cuando me ofenden.', ok:false},{t:'Porque vengarse solo está mal si alguien me ve.', ok:false}],
+   norma:'Constitución, art. 44 (protección contra la violencia)'},
+  {texto:'En Colombia, los derechos de los niños y las niñas prevalecen sobre los derechos de los demás.', resp:'verdad',
+   explica:'Así lo dice la Constitución: cuando hay que decidir, primero se protege a los niños y las niñas. Eso no significa que puedan hacer lo que quieran con los demás.',
+   porque:[{t:'Porque los niños y las niñas pueden hacer lo que quieran.', ok:false},{t:'Porque la Constitución pide proteger primero a los niños y las niñas.', ok:true},{t:'Porque los adultos no tienen derechos.', ok:false}],
+   norma:'Constitución, art. 44 · Ley 1098, art. 9'},
+  {texto:'Si es solo un chiste, lo que publico en internet sobre otra persona no le hace daño.', resp:'mito',
+   explica:'Lo que se publica en internet lo puede ver mucha gente y es difícil de borrar. Cada persona tiene derecho a su intimidad y a que respeten su dignidad.',
+   porque:[{t:'Porque está prohibido usar internet.', ok:false},{t:'Porque los chistes nunca son buenos.', ok:false},{t:'Porque lo que se publica lo ve mucha gente y puede herir a la persona.', ok:true}],
+   norma:'Ley 1098, art. 33'},
+  {texto:'Las normas solo sirven para castigar.', resp:'mito',
+   explica:'Las normas y los acuerdos sirven para convivir y para cuidar los derechos de todos. Cuando los construimos juntos, es más fácil cumplirlos.',
+   porque:[{t:'Porque las normas sirven para convivir y cuidar los derechos de todos.', ok:true},{t:'Porque las normas no sirven para nada.', ok:false},{t:'Porque nadie tiene que cumplir las normas.', ok:false}],
+   norma:'Ley 1620 de 2013 (convivencia escolar)'}
+];
+
+const NIVELES = [
+  {n:1, titulo:'Escáner de derechos', momento:'Reconozco mis derechos', icono:'scan-line', listo:true},
+  {n:2, titulo:'Detective del recreo', momento:'Respeto a los demás', icono:'search', listo:true},
+  {n:3, titulo:'Duelo de jugadas', momento:'Resuelvo conflictos', icono:'handshake', listo:true},
+  {n:4, titulo:'Asamblea final', momento:'Normas y acuerdos del curso · todo el curso', icono:'users-round', listo:true}
+];
+
+const PIELES = ['#f6d3b3','#e8b48c','#c98e62','#a86b43','#7c4a2b','#553220'];
+const PELOS = ['#1f1a17','#5a3a22','#c9a24a','#8e3b1f'];
+const CAMISETAS = ['#1d7a4e','#22579a','#c2362f','#ffb703','#6b3fa0','#f7f7f7'];
+const PEINADOS = ['Corto','Rizos','Largo','Coletas','Rapado','Gorra'];
+
+const CLAVE = '1098';
+const PISTA_A_RIESGO = 'Mira otra vez: ¿alguien está recibiendo daño, quedando por fuera o sin lo que necesita?';
+const PISTA_A_CUIDADO = 'Mira otra vez: en esta situación, ¿alguien está recibiendo lo que necesita o está siendo respetado?';
+const AUTOEVAL = {
+  ayuda:{txt:'Necesito ayuda', msg:'Gracias por decirlo. Pídele a tu profesor o a un compañero que repasen juntos uno de los casos.'},
+  cuesta:{txt:'Todavía me cuesta', msg:'Es normal: reconocer derechos se aprende practicando. Pídele a un compañero que te explique uno de los casos.'},
+  bien:{txt:'Voy bien', msg:'¡Vas muy bien! Fíjate siempre en quién resulta afectado y cómo se siente.'},
+  explicar:{txt:'Se lo puedo explicar a otros', msg:'¡Genial! Ayuda a un compañero a explicar uno de los casos con sus propias palabras.'}
+};
+
+function nuevoN1(){
+  const orden = SITUACIONES.map(s => s.id);
+  for (let i = orden.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [orden[i], orden[j]] = [orden[j], orden[i]]; }
+  return {orden, i:0, fase:'estado', intentosEstado:0, intentosDerecho:0, okEstado:false, okDerecho:false, elegido:null, revelado:false, descartados:[], pista:'', aciertos:0, mi:0, respMito:null, mitosOk:0, autoeval:null, sacudir:'', accVistas:[], accionOk:false, ordenAcc:null, ordenPorque:null, porqueResp:null, porqueOk:0, accionesOk:0};
+}
+
+let state = {
+  screen:'inicio', previa:'inicio',
+  avatar:{piel:2, pelo:0, colorPelo:0, camiseta:0, numero:10, apodo:''},
+  avatarListo:false, progreso:{n1:false}, proyector:false,
+  n1:nuevoN1(), n2:null, n3:null, n4:null, errorClave:'', desplazar:null,
+  caso:{inicial:null, final:null}, casoTmp:{}, casoRev:null
+};
+
+function progresoCompleto(){ return !!state.progreso.n4; }
+function guardar(){
+  try { localStorage.setItem('juego-limpio', JSON.stringify({avatar:state.avatar, avatarListo:state.avatarListo, progreso:state.progreso, proyector:state.proyector, caso:state.caso})); } catch(e) {}
+}
+
+function avatarSVG(a, animo){
+  const piel = PIELES[a.piel], pelo = PELOS[a.colorPelo], cam = CAMISETAS[a.camiseta];
+  const numColor = (a.camiseta === 3 || a.camiseta === 5) ? '#15233c' : '#ffffff';
+  const borde = a.camiseta === 5 ? ' stroke="#c9d2cb" stroke-width="2"' : '';
+  let atras = '', arriba = '';
+  switch (a.pelo) {
+    case 0: arriba = `<path d="M31 56 C30 34 45 25 60 25 C76 25 90 34 89 56 C82 45 72 40 60 40 C48 40 38 45 31 56 Z" fill="${pelo}"/>`; break;
+    case 1: arriba = [[34,46],[40,35],[50,28],[62,26],[73,30],[82,38],[87,49]].map(([x,y]) => `<circle cx="${x}" cy="${y}" r="10" fill="${pelo}"/>`).join('') + `<path d="M33 50 C40 40 50 36 60 36 C70 36 80 40 87 50 L87 44 C80 34 70 30 60 30 C50 30 40 34 33 44 Z" fill="${pelo}"/>`; break;
+    case 2: atras = `<rect x="27" y="36" width="66" height="62" rx="24" fill="${pelo}"/>`; arriba = `<path d="M30 60 C29 34 45 24 60 24 C76 24 91 34 90 60 C85 45 74 39 60 39 C46 39 35 45 30 60 Z" fill="${pelo}"/>`; break;
+    case 3: atras = `<circle cx="27" cy="50" r="11" fill="${pelo}"/><circle cx="93" cy="50" r="11" fill="${pelo}"/>`; arriba = `<path d="M31 56 C30 34 45 25 60 25 C76 25 90 34 89 56 C82 45 72 40 60 40 C48 40 38 45 31 56 Z" fill="${pelo}"/>`; break;
+    case 4: arriba = `<path d="M32 52 C33 35 46 28 60 28 C74 28 87 35 88 52 C80 44 70 41 60 41 C50 41 40 44 32 52 Z" fill="${pelo}" opacity=".55"/>`; break;
+    case 5: arriba = `<path d="M30 50 C30 32 44 24 60 24 C76 24 90 32 90 50 Z" fill="${cam}"${borde}/><path d="M60 47 L104 50 C104 55 97 57 89 56 L60 52 Z" fill="${cam}"${borde}/><circle cx="60" cy="25" r="3" fill="#15233c" opacity=".3"/>`; break;
+  }
+  return `<svg viewBox="0 0 120 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    ${atras}
+    <path d="M16 132 C16 106 34 95 60 95 C86 95 104 106 104 132 Z" fill="${cam}"${borde}/>
+    <rect x="52" y="78" width="16" height="20" rx="5" fill="${piel}"/>
+    <path d="M50 96 L60 106 L70 96" fill="none" stroke="${numColor}" stroke-width="3" stroke-linejoin="round" opacity=".8"/>
+    <text x="60" y="126" text-anchor="middle" font-family="Lilita One, Arial Rounded MT Bold, sans-serif" font-size="17" fill="${numColor}">${a.numero}</text>
+    <circle cx="32" cy="58" r="5.5" fill="${piel}"/><circle cx="88" cy="58" r="5.5" fill="${piel}"/>
+    <circle cx="60" cy="56" r="28" fill="${piel}"/>
+    <circle cx="50" cy="58" r="3.2" fill="#15233c"/><circle cx="70" cy="58" r="3.2" fill="#15233c"/>
+    <circle cx="44" cy="66" r="3.5" fill="#e0675a" opacity=".22"/><circle cx="76" cy="66" r="3.5" fill="#e0675a" opacity=".22"/>
+    ${animo === 'serio' ? '<path d="M52 70 L68 70" fill="none" stroke="#15233c" stroke-width="2.6" stroke-linecap="round"/>' : (animo === 'triste' || animo === 'enojado') ? '<path d="M51 72 Q60 65 69 72" fill="none" stroke="#15233c" stroke-width="2.6" stroke-linecap="round"/>' : '<path d="M51 68 Q60 75 69 68" fill="none" stroke="#15233c" stroke-width="2.6" stroke-linecap="round"/>'}
+    ${animo === 'enojado' ? '<path d="M44 50 L54 54 M76 50 L66 54" stroke="#15233c" stroke-width="2.6" stroke-linecap="round"/>' : ''}
+    ${arriba}
+  </svg>`;
+}
+
+function interruptorProyector(){
+  return `<button class="interruptor" data-accion="proyector" aria-pressed="${state.proyector}">${ic('projector')}<span class="txt">Modo proyector</span></button>`;
+}
+function barra(titulo, atras){
+  return `<header class="barra">
+    ${atras ? `<button class="btn-icono" data-accion="ir" data-valor="${atras}" aria-label="Volver">${ic('arrow-left')}</button>` : ''}
+    <h2 tabindex="-1" id="titulo-pantalla">${titulo}</h2>
+    ${guiaBoton()}${interruptorProyector()}
+  </header>${guiaPanel()}`;
+}
+
+const pantallas = {
+  inicio(){
+    return `<section class="campo" aria-labelledby="titulo-juego">
+      <svg class="tiza" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <g fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="4">
+          <rect x="30" y="30" width="940" height="540"/>
+          <line x1="500" y1="30" x2="500" y2="570"/>
+          <circle cx="500" cy="300" r="96"/>
+          <rect x="30" y="170" width="150" height="260"/><rect x="30" y="240" width="60" height="120"/>
+          <rect x="820" y="170" width="150" height="260"/><rect x="910" y="240" width="60" height="120"/>
+          <path d="M180 240 A70 70 0 0 1 180 360"/><path d="M820 240 A70 70 0 0 0 820 360"/>
+        </g>
+        <circle cx="500" cy="300" r="6" fill="#fff" fill-opacity=".4"/>
+      </svg>
+      <div class="contenido">
+        <span class="marcador">${ic('sparkles')} GRADO 4.° · ÉTICA Y CIUDADANÍA</span>
+        <h1 class="titulo-juego" id="titulo-juego">Juego Limpio</h1>
+        <p class="lema">Conoce tus derechos, cuida los de los demás y construye acuerdos para convivir.</p>
+        <div class="acciones">
+          <button class="btn btn-principal" data-accion="jugar">${ic('play')} Jugar</button>
+          <button class="btn btn-claro" data-accion="ir" data-valor="docente-clave">${ic('graduation-cap')} Soy docente</button>
+        </div>
+        ${interruptorProyector()}
+        <p class="pie">Material didáctico de competencias ciudadanas · Colombia</p>
+        <p class="pie credito">Andrés Stiven Rodríguez Puentes · Licenciatura en Electrónica · Universidad Pedagógica Nacional</p>
+      </div>
+    </section>`;
+  },
+
+  avatar(){
+    const a = state.avatar;
+    const sw = (lista, campo, etiqueta) => lista.map((c, i) => `<button class="muestra" style="background:${c}" data-accion="avatar" data-valor="${campo}:${i}" aria-pressed="${a[campo] === i}" aria-label="${etiqueta} ${i + 1}"></button>`).join('');
+    return `<div class="app">${barra('Arma tu jugador', 'inicio')}
+      <div class="avatar-grid">
+        <div class="avatar-vista tarjeta">
+          <div class="marco">${avatarSVG(a)}</div>
+          <h3 id="nombre-vista" style="font-size:1.5rem">${a.apodo ? esc(a.apodo) : 'Tu jugador'}</h3>
+          <span class="etiqueta">${ic('sparkles')} Camiseta n.° ${a.numero}</span>
+        </div>
+        <div class="pila">
+          <div class="tarjeta opcion"><h3>Tono de piel</h3><div class="muestras">${sw(PIELES, 'piel', 'Tono de piel')}</div></div>
+          <div class="tarjeta opcion"><h3>Peinado</h3><div class="muestras">${PEINADOS.map((p, i) => `<button class="pildora" data-accion="avatar" data-valor="pelo:${i}" aria-pressed="${a.pelo === i}">${p}</button>`).join('')}</div></div>
+          <div class="tarjeta opcion"><h3>Color del pelo</h3><div class="muestras">${sw(PELOS, 'colorPelo', 'Color del pelo')}</div></div>
+          <div class="tarjeta opcion"><h3>Camiseta</h3><div class="muestras">${sw(CAMISETAS, 'camiseta', 'Color de camiseta')}</div></div>
+          <div class="tarjeta opcion fila" style="justify-content:space-between">
+            <h3 style="margin:0">Número de camiseta</h3>
+            <div class="numero">
+              <button class="btn-icono" data-accion="numero" data-valor="-1" aria-label="Bajar número">${ic('minus')}</button>
+              <output aria-live="polite">${a.numero}</output>
+              <button class="btn-icono" data-accion="numero" data-valor="1" aria-label="Subir número">${ic('plus')}</button>
+            </div>
+          </div>
+          <div class="tarjeta opcion"><h3><label for="apodo">Tu apodo</label></h3>
+            <input class="campo-texto" id="apodo" maxlength="14" autocomplete="off" placeholder="Ej.: La Pulga" value="${esc(a.apodo)}">
+          </div>
+          <div><button class="btn btn-cancha" data-accion="avatar-listo">${ic('check')} Listo, al vestuario</button></div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  vestuario(){
+    const a = state.avatar;
+    const hecho = n => !!state.progreso['n' + n];
+    const ganadas = NIVELES.filter(n => hecho(n.n)).length;
+    return `<div class="app">
+      <header class="barra">
+        <button class="btn-icono" data-accion="ir" data-valor="inicio" aria-label="Ir al inicio">${ic('house')}</button>
+        <h2 tabindex="-1" id="titulo-pantalla">Vestuario</h2>
+        ${interruptorProyector()}
+      </header>
+      <div class="pila">
+        <section class="tarjeta perfil">
+          <div class="mini">${avatarSVG(a)}</div>
+          <div style="flex:1;min-width:0">
+            <h3>${a.apodo ? esc(a.apodo) : 'Tu jugador'}</h3>
+            <p style="color:var(--tinta-2)">Camiseta n.° ${a.numero}</p>
+          </div>
+          <button class="btn btn-chico" data-accion="ir" data-valor="avatar">${ic('pencil')} Editar</button>
+        </section>
+        <div class="fichas">
+          <button class="ficha" data-accion="ir" data-valor="mochila">
+            <span class="titulo">${ic('backpack')} Mochila de derechos</span>
+            <span class="grande">12 de 12</span>
+            <span style="color:var(--tinta-2);font-size:.9rem">Siempre completa. Tócala para ver tus derechos.</span>
+          </button>
+          <div class="ficha">
+            <span class="titulo">${ic('sticker')} Álbum de láminas</span>
+            <span class="grande">${ganadas} de 4</span>
+            <div class="album" aria-label="Láminas ganadas: ${ganadas} de 4">
+              ${NIVELES.map(n => `<span class="slot${hecho(n.n) ? ' ganada' : ''}">${ic(n.icono)}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+        ${ganadas === NIVELES.length ? `<div class="album-completo">${ic('trophy')}<p><strong>¡Álbum completo!</strong> Terminaste los 4 niveles de Juego Limpio.</p></div>` : ''}
+        <section class="caso-ficha${state.caso.inicial ? '' : ' activo'}">
+          <span class="circulo">${ic('volleyball')}</span>
+          <div style="flex:1;min-width:0">
+            <h4>El caso del balón</h4>
+            <p class="momento">${state.caso.inicial ? (state.caso.final ? 'Revisaste tu postura. Puedes volver a verla.' : 'Vuelve al caso al terminar el nivel 4 y revisa tu postura.') : 'Empieza aquí: ¿quién decide las reglas del juego?'}</p>
+            ${state.caso.inicial ? `<p class="suave" style="font-size:.92rem">Primera postura: <strong>${POSTURA[state.caso.inicial.postura].t}</strong>${state.caso.final ? ` · Postura final: <strong>${POSTURA[state.caso.final.postura].t}</strong>` : ''}</p>` : ''}
+          </div>
+          ${state.caso.inicial
+            ? `<div class="fila" style="gap:8px"><button class="btn btn-chico" data-accion="caso-empezar">${ic('eye')} Ver</button><button class="btn btn-chico${progresoCompleto() && !state.caso.final ? ' btn-principal' : ''}" data-accion="caso-revisar">${ic('rotate-ccw')} Revisar mi postura</button></div>`
+            : `<button class="btn btn-principal btn-chico" data-accion="caso-empezar">${ic('play')} Empezar aquí</button>`}
+        </section>
+        <h3 style="font-size:1.4rem;margin-top:8px">Niveles</h3>
+        <ol class="niveles">
+          ${NIVELES.map(n => `<li class="nivel${n.listo && !hecho(n.n) ? ' activo' : ''}">
+            <span class="num">${n.n}</span>
+            <div><h4>${n.titulo}</h4><p class="momento">${n.momento}</p>
+              ${hecho(n.n) ? `<span class="hecho">${ic('circle-check')} Lámina ganada</span>` : ''}</div>
+            ${n.listo ? `<button class="btn ${hecho(n.n) ? '' : 'btn-principal '}btn-chico" data-accion="ir" data-valor="n${n.n}-intro">${ic(hecho(n.n) ? 'rotate-ccw' : 'play')} ${hecho(n.n) ? 'Jugar de nuevo' : 'Jugar'}</button>` : `<span class="pronto">Próximamente</span>`}
+          </li>`).join('')}
+        </ol>
+        <p class="credito-pie">Juego Limpio · Andrés Rodríguez · Lic. en Electrónica · UPN</p>
+      </div>
+    </div>`;
+  },
+
+  mochila(){
+    return `<div class="app">${barra('Mochila de derechos', 'vestuario')}
+      <div class="pila">
+        <div class="aviso">${ic('info')}<p><strong>Estos 12 derechos son tuyos y de todos los niños y las niñas, siempre.</strong> No se ganan con premios ni se pierden con castigos. Los protegen la Constitución de Colombia (art. 44) y el Código de la Infancia y la Adolescencia (Ley 1098 de 2006).</p></div>
+        <div>${escuchar(DERECHOS.map(d => d.nombre + ': ' + d.frase).join(' '), true)}</div>
+        <div class="derechos">
+          ${DERECHOS.map(d => `<div class="derecho"><span class="circulo">${ic(d.icono)}</span><div><strong>${d.nombre}</strong><span>${d.frase}</span></div></div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  'n1-intro'(){
+    return `<div class="app">${barra('Nivel 1 · Escáner de derechos', 'vestuario')}
+      <div class="pila">
+        <div class="tarjeta">
+          <p style="font-size:1.15rem">Vas a escanear <strong>12 situaciones</strong> de la casa, el colegio, el barrio e internet. Después viene una ronda de <strong>Mito o verdad</strong>.</p>
+        </div>
+        <ol class="pasos">
+          <li><span class="n">1</span><p>Lee la situación con atención.</p></li>
+          <li><span class="n">2</span><p>Decide si el derecho está <strong>cuidado</strong> o <strong>en riesgo</strong>.</p></li>
+          <li><span class="n">3</span><p>Escoge cuál derecho está en juego.</p></li>
+        </ol>
+        <div class="aviso">${ic('users-round')}<p>Si juegan con todo el curso, cada equipo vota y explica su respuesta antes de tocar la pantalla.</p></div>
+        <div><button class="btn btn-principal" data-accion="empezar-n1">${ic('scan-line')} Empezar a escanear</button></div>
+      </div>
+    </div>`;
+  },
+
+  'n1-escaner'(){
+    const n = state.n1, s = S[n.orden[n.i]], L = LUGARES[s.lugar];
+    const pips = n.orden.map((_, k) => `<span class="${k < n.i ? 'ok' : k === n.i ? 'ahora' : ''}"></span>`).join('');
+    let cuerpo = '';
+    if (n.fase === 'estado') {
+      cuerpo = `<p class="pregunta"><span class="paso-n">Paso 1</span> ¿Cómo está el derecho en esta situación?</p>
+        <div class="estados${n.sacudir === 'estado' ? ' sacude' : ''}">
+          <button class="estado cuidado" data-accion="estado" data-valor="cuidado">${ic('shield-check')} Cuidado</button>
+          <button class="estado riesgo" data-accion="estado" data-valor="riesgo">${ic('triangle-alert')} En riesgo</button>
+        </div>`;
+    } else if (n.fase === 'derecho') {
+      cuerpo = `<div class="fila"><span class="sello ${s.estado}">${ic(s.estado === 'cuidado' ? 'shield-check' : 'triangle-alert')} ${s.estado === 'cuidado' ? 'Derecho cuidado' : 'Derecho en riesgo'}</span></div>
+        <p class="pregunta"><span class="paso-n">Paso 2</span> ¿Cuál derecho está en juego?</p>
+        <div class="opciones-derecho${n.sacudir === 'derecho' ? ' sacude' : ''}">
+          ${DERECHOS.map(d => `<button class="op-derecho${n.descartados.includes(d.id) ? ' descartado' : ''}" data-accion="derecho" data-valor="${d.id}">${ic(d.icono)}<span>${d.nombre}</span></button>`).join('')}
+        </div>`;
+    } else {
+      const principal = D[s.derecho];
+      const otro = n.elegido && n.elegido !== s.derecho ? D[n.elegido] : null;
+      const titulo = n.revelado ? 'Mira la respuesta' : (n.okEstado && n.okDerecho ? '¡Bien visto!' : '¡Lo encontraste!');
+      const ultimo = n.i === n.orden.length - 1;
+      cuerpo = `<div class="resultado entra" role="status">
+          <h3>${ic(n.revelado ? 'lightbulb' : 'circle-check')} ${titulo}</h3>
+          <div class="fila">
+            <span class="sello ${s.estado}">${ic(s.estado === 'cuidado' ? 'shield-check' : 'triangle-alert')} ${s.estado === 'cuidado' ? 'Derecho cuidado' : 'Derecho en riesgo'}</span>
+            <span class="sello derecho">${ic(principal.icono)} ${principal.nombre}</span>
+          </div>
+          ${otro ? `<p><strong>${otro.nombre}</strong> también aplica. El derecho que más está en juego es <strong>${principal.nombre}</strong>.</p>` : ''}
+          <p style="font-size:1.08rem">${s.explica} ${escuchar(s.explica)}</p>
+          <p class="ley">${ic('book-open')} Lo dice: ${s.norma}</p>
+        </div>
+        ${s.acciones ? `<p class="pregunta"><span class="paso-n">Paso 3</span> ¿Qué se podría hacer para cuidar este derecho?</p>
+          <div class="acciones2">${(n.ordenAcc || []).map(k => { const a = s.acciones[k], vista = n.accVistas.includes(k);
+            return `<button class="accion2${vista ? (a.ok ? ' buena' : ' mala') : ''}" data-accion="accion1" data-valor="${k}" aria-pressed="${vista}"><span>${a.t}</span>${vista ? `<small>${ic(a.ok ? 'circle-check' : 'circle-x')} ${a.c}</small>` : ''}</button>`; }).join('')}</div>` : ''}
+        ${!s.acciones || n.accionOk ? `${s.conversar ? `<div class="conversar entra">${ic('message-circle-question')}<div><strong>Para conversar</strong>${s.conversar}</div></div>` : ''}
+        <div class="derecha"><button class="btn btn-cancha" data-accion="siguiente">${ultimo ? 'Ir a Mito o verdad' : 'Siguiente situación'} ${ic('arrow-right')}</button></div>` : ''}`;
+    }
+    return `<div class="app">${barra('Escáner de derechos', 'vestuario')}
+      <p class="sr" aria-live="polite">Situación ${n.i + 1} de ${n.orden.length}</p>
+      <div class="pips" aria-hidden="true">${pips}</div>
+      <div class="pila">
+        <article class="caso${n.fase === 'estado' && !n.sacudir ? ' escanea' : ''}">
+          <div class="fila" style="justify-content:space-between">
+            <span class="etiqueta lugar-${s.lugar}">${ic(L.icono)} ${L.nombre}</span>
+            <span class="etiqueta">Situación ${n.i + 1} de ${n.orden.length}</span>
+          </div>
+          <p class="texto">${s.texto}</p>
+          <div style="margin-top:12px">${escuchar(s.texto, true)}</div>
+        </article>
+        ${cuerpo}
+        ${n.pista ? `<div class="pista" role="status">${ic('lightbulb')}<p>${n.pista}</p></div>` : ''}
+      </div>
+    </div>`;
+  },
+
+  'n1-mitos'(){
+    const n = state.n1, m = MITOS[n.mi];
+    let cuerpo;
+    if (!n.respMito) {
+      cuerpo = `<p class="pregunta">¿Es un mito o es verdad?</p>
+        <div class="mv">
+          <button class="estado mito" data-accion="mito" data-valor="mito">${ic('circle-x')} Mito</button>
+          <button class="estado verdad" data-accion="mito" data-valor="verdad">${ic('circle-check')} Verdad</button>
+        </div>`;
+    } else {
+      const bien = n.respMito === m.resp;
+      const ultimo = n.mi === MITOS.length - 1;
+      const veredicto = `${ic(bien ? 'circle-check' : 'lightbulb')} ${bien ? '¡Correcto!' : 'Esta vez no.'} ${m.resp === 'mito' ? 'Es un mito.' : 'Es verdad.'}`;
+      if (n.porqueResp === null) {
+        cuerpo = `<div class="resultado entra" role="status"><h3>${veredicto}</h3></div>
+          <p class="pregunta"><span class="paso-n">Paso 2</span> ¿Por qué?</p>
+          <div class="acciones2">${(n.ordenPorque || []).map(k => `<button class="accion2" data-accion="porque1" data-valor="${k}"><span>${m.porque[k].t}</span></button>`).join('')}</div>`;
+      } else {
+        const pq = m.porque[n.porqueResp], correcto = m.porque.find(x => x.ok);
+        cuerpo = `<div class="resultado entra" role="status">
+          <h3>${veredicto}</h3>
+          <p class="sello ${pq.ok ? 'cuidado' : 'riesgo'}" style="align-self:flex-start">${ic(pq.ok ? 'circle-check' : 'circle-x')} ${pq.ok ? 'Buena razón' : 'Esa razón no es la mejor'}</p>
+          ${pq.ok ? '' : `<p><strong>La mejor razón:</strong> ${correcto.t}</p>`}
+          <p style="font-size:1.08rem">${m.explica} ${escuchar(m.explica)}</p>
+          <p class="ley">${ic('book-open')} Lo dice: ${m.norma}</p>
+        </div>
+        <div class="derecha"><button class="btn btn-cancha" data-accion="siguiente-mito">${ultimo ? 'Ver mi lámina' : 'Siguiente'} ${ic('arrow-right')}</button></div>`;
+      }
+    }
+    return `<div class="app">${barra('Mito o verdad', 'vestuario')}
+      <div class="pips" aria-hidden="true">${MITOS.map((_, k) => `<span class="${k < n.mi ? 'ok' : k === n.mi ? 'ahora' : ''}"></span>`).join('')}</div>
+      <div class="pila">
+        <div class="afirmacion">${ic('quote', 'comillas')}<p>${m.texto}</p>${escuchar(m.texto, true, 'claro')}</div>
+        <p class="etiqueta" style="align-self:flex-start">Frase ${n.mi + 1} de ${MITOS.length}</p>
+        ${cuerpo}
+      </div>
+    </div>`;
+  },
+
+  'n1-cierre'(){
+    const n = state.n1;
+    return `<div class="app">${barra('¡Nivel 1 completo!', 'vestuario')}
+      <div class="pila">
+        <div class="cierre">
+          <div class="lamina${n.laminaVista ? ' quieta' : ''}" role="img" aria-label="Lámina 1: Escáner de derechos">
+            <span class="numl">LÁMINA 01</span>
+            <span class="icono-l">${ic('scan-line')}</span>
+            <h3>Escáner de derechos</h3>
+            <p>Reconozco mis derechos y los de los demás.</p>
+          </div>
+          <div class="pila">
+            <p style="font-size:1.15rem">Ganaste tu primera lámina. Quedó pegada en tu álbum del vestuario.</p>
+            <div class="datos">
+              <div class="dato"><b>${SITUACIONES.length}</b><span>situaciones escaneadas</span></div>
+              <div class="dato"><b>${n.aciertos}</b><span>reconocidas a la primera</span></div>
+              <div class="dato"><b>${n.mitosOk} de ${MITOS.length}</b><span>mitos y verdades (${n.porqueOk} con la mejor razón)</span></div>
+            </div>
+          </div>
+        </div>
+        <section class="tarjeta pila" style="gap:12px">
+          <h3 style="font-size:1.25rem">¿Cómo te fue reconociendo derechos?</h3>
+          <div class="autoeval">${Object.entries(AUTOEVAL).map(([k, v]) => `<button data-accion="autoeval" data-valor="${k}" aria-pressed="${n.autoeval === k}">${v.txt}</button>`).join('')}</div>
+          ${n.autoeval ? `<p role="status" class="entra">${AUTOEVAL[n.autoeval].msg}</p>` : ''}
+        </section>
+        <div class="cuaderno">${ic('notebook-pen')}<p><strong>Para tu cuaderno:</strong> escribe un derecho que viste hoy, una situación en la que estaba en riesgo y una acción para cuidarlo en tu salón.</p></div>
+        <div class="fila">
+          <button class="btn btn-cancha" data-accion="ir" data-valor="vestuario">${ic('house')} Volver al vestuario</button>
+          <button class="btn" data-accion="empezar-n1">${ic('rotate-ccw')} Jugar de nuevo</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  'docente-clave'(){
+    return `<div class="app">${barra('Panel docente', 'inicio')}
+      <form class="tarjeta pila clave" id="form-clave" novalidate>
+        <p class="fila" style="gap:8px;font-weight:700">${ic('lock')} Esta sección es para docentes.</p>
+        <label for="clave">Escribe la clave</label>
+        <input class="campo-texto" id="clave" type="password" inputmode="numeric" autocomplete="off">
+        <p class="error" id="error-clave" role="alert">${state.errorClave}</p>
+        <p style="font-size:.88rem;color:var(--tinta-2)">Pista: es el número de la ley del Código de la Infancia y la Adolescencia.</p>
+        <div><button class="btn btn-cancha" type="submit">${ic('key-round')} Entrar</button></div>
+      </form>
+    </div>`;
+  }
+
+};
+
+const acciones = {
+  ir(v){ state.errorClave = ''; state.screen = (v === 'docente-clave' && state.docenteOk) ? 'docente' : v; },
+  jugar(){ state.screen = state.avatarListo ? 'vestuario' : 'avatar'; },
+  proyector(){ state.proyector = !state.proyector; guardar(); },
+  avatar(v){ const [campo, i] = v.split(':'); state.avatar[campo] = Number(i); guardar(); },
+  numero(v){ let x = state.avatar.numero + Number(v); if (x < 1) x = 99; if (x > 99) x = 1; state.avatar.numero = x; guardar(); },
+  'avatar-listo'(){ state.avatarListo = true; guardar(); state.screen = 'vestuario'; },
+  'empezar-n1'(){ state.n1 = nuevoN1(); state.screen = 'n1-escaner'; },
+  estado(v){
+    const n = state.n1, s = S[n.orden[n.i]];
+    if (n.fase !== 'estado') return;
+    if (v === s.estado) { n.okEstado = n.intentosEstado === 0; n.fase = 'derecho'; n.pista = ''; n.sacudir = ''; }
+    else { n.intentosEstado++; n.pista = v === 'cuidado' ? PISTA_A_RIESGO : PISTA_A_CUIDADO; n.sacudir = 'estado'; }
+  },
+  accion1(v){
+    const n = state.n1, s = S[n.orden[n.i]], k = Number(v);
+    if (!s.acciones || n.fase !== 'feedback' || n.accionOk) return;
+    if (!n.accVistas.includes(k)) n.accVistas.push(k);
+    if (s.acciones[k].ok) { n.accionOk = true; if (n.accVistas.length === 1) n.accionesOk++; registrar('n1a:' + s.id, n.accVistas.length === 1); }
+  },
+  porque1(v){
+    const n = state.n1, m = MITOS[n.mi];
+    if (!n.respMito || n.porqueResp !== null) return;
+    n.porqueResp = Number(v);
+    if (m.porque[n.porqueResp].ok) n.porqueOk++;
+  },
+  derecho(v){
+    const n = state.n1, s = S[n.orden[n.i]];
+    if (n.fase !== 'derecho') return;
+    if (v === s.derecho || s.tambien.includes(v)) {
+      n.elegido = v; n.okDerecho = n.intentosDerecho === 0; n.fase = 'feedback'; n.pista = ''; n.sacudir = '';
+      if (n.okEstado && n.okDerecho) n.aciertos++;
+      n.ordenAcc = s.acciones ? mezclar(s.acciones.map((_, k) => k)) : null;
+      registrar('n1:' + s.id, n.okEstado && n.okDerecho);
+    } else {
+      n.intentosDerecho++;
+      if (!n.descartados.includes(v)) n.descartados.push(v);
+      if (n.intentosDerecho >= 2) { n.elegido = s.derecho; n.okDerecho = false; n.revelado = true; n.fase = 'feedback'; n.pista = ''; n.sacudir = ''; n.ordenAcc = s.acciones ? mezclar(s.acciones.map((_, k) => k)) : null; registrar('n1:' + s.id, false); }
+      else { n.pista = 'Ese derecho también es importante, pero aquí hay otro que está más en juego. Pista: ' + s.pista; n.sacudir = 'derecho'; }
+    }
+  },
+  siguiente(){
+    const n = state.n1;
+    if (n.i >= n.orden.length - 1) { state.screen = 'n1-mitos'; return; }
+    Object.assign(n, {i:n.i + 1, fase:'estado', intentosEstado:0, intentosDerecho:0, okEstado:false, okDerecho:false, elegido:null, revelado:false, descartados:[], pista:'', sacudir:'', accVistas:[], accionOk:false, ordenAcc:null});
+  },
+  mito(v){ const n = state.n1; if (n.respMito) return; n.respMito = v; n.porqueResp = null; n.ordenPorque = mezclar(MITOS[n.mi].porque.map((_, k) => k)); if (v === MITOS[n.mi].resp) n.mitosOk++; registrar('n1m:' + n.mi, v === MITOS[n.mi].resp); },
+  'siguiente-mito'(){
+    const n = state.n1;
+    if (n.mi >= MITOS.length - 1) { state.progreso.n1 = true; guardar(); contarPartida('n1'); state.screen = 'n1-cierre'; return; }
+    n.mi++; n.respMito = null; n.porqueResp = null;
+  },
+  autoeval(v){ state.n1.autoeval = v; }
+};
+
+__NIVEL2__
+
+__NIVEL3__
+
+__NIVEL4__
+
+__DOCENTE__
+
+__CASO__
+
+let pantallaPrevia = null;
+function render(){
+  document.documentElement.classList.toggle('proyector', state.proyector);
+  const html = (pantallas[state.screen] || pantallas.inicio)();
+  document.getElementById('raiz').innerHTML = html;
+  if (pantallaPrevia !== state.screen) {
+    detenerVoz();
+    window.scrollTo(0, 0);
+    const t = document.getElementById('titulo-pantalla');
+    if (t && pantallaPrevia !== null) t.focus({preventScroll:true});
+    pantallaPrevia = state.screen;
+  }
+  if (state.n1) { state.n1.sacudir = ''; if (state.screen === 'n1-cierre') state.n1.laminaVista = true; }
+  if (state.n2) { state.n2.sacudir = ''; if (state.screen === 'n2-cierre') state.n2.laminaVista = true; }
+  if (state.n3 && state.screen === 'n3-cierre') state.n3.laminaVista = true;
+  if (state.n4) { state.n4.sacudir = ''; if (state.screen === 'n4-cierre') state.n4.laminaVista = true; }
+  document.querySelectorAll('[data-anima]').forEach(el => {
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.width = el.dataset.anima + '%'; }));
+  });
+  if (state.desplazar) {
+    const d = document.getElementById(state.desplazar);
+    state.desplazar = null;
+    if (d) d.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest'});
+  }
+}
+
+function ejecutar(b, e){
+  const f = acciones[b.dataset.accion];
+  if (!f) return;
+  const antes = state.screen;
+  f(b.dataset.valor);
+  render();
+  if (antes === state.screen && e.detail === 0) {
+    const sel = '[data-accion="' + b.dataset.accion + '"]' + (b.dataset.valor ? '[data-valor="' + b.dataset.valor + '"]' : '');
+    const nb = document.querySelector(sel) || document.querySelector('#raiz button');
+    if (nb) nb.focus();
+  }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-accion]');
+  if (b) ejecutar(b, e);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const b = e.target.closest && e.target.closest('[data-accion]');
+  if (!b || b.tagName === 'BUTTON') return;
+  e.preventDefault();
+  ejecutar(b, {detail: 0});
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'propio-texto' && state.n4) { state.n4.borrador = e.target.value.slice(0, 120); return; }
+  if (e.target.id === 'curso' && state.n4) { state.n4.curso = e.target.value.slice(0, 20); return; }
+  if (e.target.id === 'apodo') {
+    state.avatar.apodo = e.target.value.slice(0, 14);
+    const v = document.getElementById('nombre-vista');
+    if (v) v.textContent = state.avatar.apodo || 'Tu jugador';
+    guardar();
+  }
+});
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'form-clave') return;
+  e.preventDefault();
+  const val = (document.getElementById('clave').value || '').trim();
+  if (val === CLAVE) { state.errorClave = ''; state.docenteOk = true; state.screen = 'docente'; }
+  else { state.errorClave = val ? 'Clave incorrecta. Revisa la pista.' : 'Escribe la clave para entrar.'; }
+  render();
+  if (state.screen === 'docente-clave') { const c = document.getElementById('clave'); if (c) c.focus(); }
+});
+
+function start(data){
+  try {
+    const g = JSON.parse(localStorage.getItem('juego-limpio') || 'null');
+    if (g) {
+      if (g.avatar) Object.assign(state.avatar, g.avatar);
+      if (g.progreso) state.progreso = g.progreso;
+      state.proyector = !!g.proyector; state.avatarListo = !!g.avatarListo;
+      if (g.caso) state.caso = Object.assign({inicial:null, final:null}, g.caso);
+    }
+  } catch(e) {}
+  if (data && data.screen) state = Object.assign(state, data);
+  render();
+}
+window.claude?.hot?.snapshot?.(() => state);
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
